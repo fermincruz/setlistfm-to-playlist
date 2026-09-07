@@ -8,7 +8,7 @@ crea una playlist con esas canciones en la cuenta de Tidal del usuario.
 ```powershell
 python -m venv .venv
 .venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 
 ## Configuración

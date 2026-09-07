@@ -18,6 +18,24 @@ def _format_track(track: "tidalapi.media.Track") -> str:
     return f"{artist_name} - {track.name} [{album_name}] ({minutes}:{seconds:02d})"
 
 
+def _normalize_track_value(value: Optional[str]) -> str:
+    return (value or "").strip().casefold()
+
+
+def _track_matches_song(
+    track: "tidalapi.media.Track", artist_name: str, song_name: str
+) -> bool:
+    track_artist_name = track.artist.name if track.artist else ""
+    return _normalize_track_value(track_artist_name) == _normalize_track_value(artist_name) and _normalize_track_value(
+        track.name
+    ) == _normalize_track_value(song_name)
+
+
+def _track_matches_artist(track: "tidalapi.media.Track", artist_name: str) -> bool:
+    track_artist_name = track.artist.name if track.artist else ""
+    return _normalize_track_value(track_artist_name) == _normalize_track_value(artist_name)
+
+
 def _choose_track(
     song_name: str, candidates: List["tidalapi.media.Track"]
 ) -> Optional["tidalapi.media.Track"]:
@@ -58,7 +76,19 @@ def resolve_songs(
             print(f"No se ha encontrado en Tidal: '{song.name}' ({search_artist})")
             continue
 
-        track = candidates[0] if len(candidates) == 1 else _choose_track(song.name, candidates)
+        exact_matches = [
+            track for track in candidates if _track_matches_song(track, search_artist, song.name)
+        ]
+        same_artist_matches = [track for track in candidates if _track_matches_artist(track, search_artist)]
+
+        if exact_matches:
+            track = exact_matches[0]
+        elif same_artist_matches:
+            track = same_artist_matches[0]
+        elif len(candidates) == 1:
+            track = candidates[0]
+        else:
+            track = _choose_track(song.name, candidates)
 
         if track is not None:
             resolved.append(track)
