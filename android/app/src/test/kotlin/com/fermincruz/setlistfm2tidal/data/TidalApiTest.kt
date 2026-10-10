@@ -56,5 +56,6 @@ class TidalApiTest {
     fun doesNotCreateEmptyPlaylist() = runBlocking {
         TidalApi(OkHttpClient(), server.url("/v2/").toString().toHttpUrl())
             .createPlaylist("access-token", "title", "", emptyList())
+        Unit
     }
 }

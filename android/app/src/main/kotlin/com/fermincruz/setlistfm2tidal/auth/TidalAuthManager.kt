@@ -40,10 +40,15 @@ class TidalAuthManager(
         )
             .setScopes(*REQUIRED_SCOPES)
             .build()
-        return authorizationService.getAuthorizationRequestIntent(request)
+        return requireNotNull(authorizationService.getAuthorizationRequestIntent(request)) {
+            "No se pudo preparar el acceso a TIDAL."
+        }
     }
 
     suspend fun completeAuthorization(intent: Intent?) {
+        if (intent == null) {
+            throw IllegalStateException("No se recibió respuesta de TIDAL.")
+        }
         val response = AuthorizationResponse.fromIntent(intent)
         val exception = AuthorizationException.fromIntent(intent)
         val state = AuthState(serviceConfiguration)

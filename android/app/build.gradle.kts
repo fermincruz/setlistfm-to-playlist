@@ -28,7 +28,7 @@ android {
 
         val tidalClientId = providers.gradleProperty("TIDAL_CLIENT_ID").orElse("").get()
         buildConfigField("String", "TIDAL_CLIENT_ID", "\"$tidalClientId\"")
-        manifestPlaceholders["appAuthRedirectScheme"] = applicationId
+        manifestPlaceholders["appAuthRedirectScheme"] = requireNotNull(applicationId)
     }
 
     buildFeatures {
