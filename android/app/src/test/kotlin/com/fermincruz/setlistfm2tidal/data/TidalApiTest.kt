@@ -30,17 +30,25 @@ class TidalApiTest {
         server.enqueue(MockResponse().setBody("""{"data":[]}"""))
         val api = TidalApi(OkHttpClient(), server.url("/v2/").toString().toHttpUrl())
 
-        val created = api.createPlaylist("access-token", "Artist - Venue", "from setlist", listOf("10", "11"))
+        val created = api.createPlaylist(
+            "access-token",
+            "Artist - Venue",
+            "from setlist",
+            listOf("10", "11", "10"),
+            operationId = "stable-operation",
+        )
 
         assertEquals("playlist-1", created.id)
-        assertEquals(2, created.trackCount)
+        assertEquals(3, created.trackCount)
         assertTrue(created.url.endsWith("/playlist/playlist-1"))
         val createRequest = server.takeRequest()
         assertEquals("POST", createRequest.method)
         assertEquals("Bearer access-token", createRequest.getHeader("Authorization"))
+        assertEquals("stable-operation", createRequest.getHeader("Idempotency-Key"))
         assertTrue(createRequest.body.readUtf8().contains("\"name\":\"Artist - Venue\""))
         val addRequest = server.takeRequest()
         assertEquals("/v2/playlists/playlist-1/relationships/items", addRequest.path)
+        assertEquals("stable-operation-0", addRequest.getHeader("Idempotency-Key"))
         assertTrue(addRequest.body.readUtf8().contains("\"type\":\"tracks\""))
     }
 

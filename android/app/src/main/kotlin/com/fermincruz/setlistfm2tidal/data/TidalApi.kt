@@ -52,6 +52,7 @@ class TidalApi(
         title: String,
         description: String,
         trackIds: List<String>,
+        operationId: String = UUID.randomUUID().toString(),
     ): CreatedPlaylist {
         require(trackIds.isNotEmpty()) { "No hay canciones para añadir a la playlist." }
         val attributes = JsonObject().apply {
@@ -68,11 +69,12 @@ class TidalApi(
             url = baseUrl.newBuilder().addPathSegment("playlists").build(),
             accessToken = accessToken,
             body = body,
+            idempotencyKey = operationId,
         )
         val playlistId = playlistResponse.objectOrNull("data")?.stringOrNull("id")
             ?: throw TidalApiException(200, "TIDAL no devolvió el identificador de la playlist.")
 
-        trackIds.distinct().chunked(MAX_TRACKS_PER_REQUEST).forEach { batch ->
+        trackIds.chunked(MAX_TRACKS_PER_REQUEST).forEachIndexed { batchIndex, batch ->
             val items = JsonArray().apply {
                 batch.forEach { id ->
                     add(JsonObject().apply {
@@ -92,13 +94,14 @@ class TidalApi(
                     .build(),
                 accessToken = accessToken,
                 body = addBody,
+                idempotencyKey = "$operationId-$batchIndex",
             )
         }
 
         return CreatedPlaylist(
             id = playlistId,
             url = "https://tidal.com/browse/playlist/$playlistId",
-            trackCount = trackIds.distinct().size,
+            trackCount = trackIds.size,
         )
     }
 
@@ -107,6 +110,7 @@ class TidalApi(
         url: HttpUrl,
         accessToken: String,
         body: JsonObject? = null,
+        idempotencyKey: String? = null,
     ): JsonObject = withContext(Dispatchers.IO) {
         require(accessToken.isNotBlank()) { "Autoriza la aplicación en TIDAL para continuar." }
         val requestBody = body?.toString()?.toRequestBody(JSON_API_MEDIA_TYPE)
@@ -115,7 +119,7 @@ class TidalApi(
             .header("Authorization", "Bearer $accessToken")
             .header("Accept", JSON_API_CONTENT_TYPE)
             .header("Content-Type", JSON_API_CONTENT_TYPE)
-            .header("Idempotency-Key", UUID.randomUUID().toString())
+        if (idempotencyKey != null) builder.header("Idempotency-Key", idempotencyKey)
         when (method) {
             "GET" -> builder.get()
             "POST" -> builder.post(requireNotNull(requestBody))
