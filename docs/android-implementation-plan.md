@@ -73,6 +73,21 @@ Cada fase se valida antes de crear su commit. Las fases que llamen servicios
 remotos se prueban con mocks; la prueba real de OAuth y permisos requiere una
 app registrada por el mantenedor y una cuenta TIDAL.
 
+## Estado de ejecucion
+
+| Fase | Estado | Commit | Validacion |
+| --- | --- | --- | --- |
+| Requisitos y diseno | Completa | `5383b39` | Contratos oficiales TIDAL y Setlist.fm revisados. |
+| Base Android y dominio | Completa | `2565cf3` | Pruebas unitarias escritas; diagnosticos del editor sin errores. No ejecutables sin Gradle/JDK. |
+| Integraciones y autorizacion | Completa | `fbae6c7` | Pruebas HTTP mock escritas; diagnosticos del editor sin errores. No ejecutables sin Gradle/JDK. |
+| Interfaz y flujo completo | Completa | `20ddf27`, `12eddaa` | Pruebas Compose para entrada, seleccion/omision y bloqueo de playlist vacia; no ejecutables sin Android SDK/emulador. |
+| Documentacion y APK | Completa | Commit de entrega | Guia de usuario, firma local y comandos de build documentados; APK no generado en este entorno. |
+
+Los commits pertenecen a la rama `feature/android-app`. No se ha generado un APK
+en este entorno porque no estan instalados Java, Gradle ni Android SDK. El APK
+release necesita ademas que el mantenedor registre y configure una app TIDAL con
+permisos de escritura aprobados.
+
 ## Criterios de aceptacion
 
 - Se pueden obtener setlists tanto por URL como por artista, conservando las

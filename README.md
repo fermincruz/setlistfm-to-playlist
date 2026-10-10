@@ -3,6 +3,9 @@
 Script de terminal que, a partir de la URL de un concierto en [setlist.fm](https://www.setlist.fm/),
 crea una playlist con esas canciones en la cuenta de Tidal del usuario.
 
+Tambien incluye una aplicacion Android nativa para realizar el mismo flujo desde una interfaz sencilla:
+[guia de usuario](android/README.md) y [generacion del APK](docs/android-apk.md).
+
 ## Instalación
 
 ```powershell
