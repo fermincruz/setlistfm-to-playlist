@@ -92,7 +92,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun PlaylistScreen(
+internal fun PlaylistScreen(
     state: PlaylistUiState,
     onApiKeyChanged: (String) -> Unit,
     onSaveApiKey: () -> Unit,
