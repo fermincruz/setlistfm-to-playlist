@@ -28,6 +28,14 @@ data class TrackCandidate(
     val listenUrl: String? = null,
 )
 
+data class PlaylistCreationResult(
+    val title: String,
+    val url: String,
+    val addedTrackCount: Int,
+    val setlistSongCount: Int,
+    val notFoundSongs: List<String>,
+)
+
 sealed interface SongResolution {
     data object Ignore : SongResolution
     data object NotFound : SongResolution
