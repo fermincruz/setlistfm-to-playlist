@@ -94,8 +94,14 @@ Hay que hacerlo una sola vez. Todos los servicios usados son gratuitos.
 `ALLOWED_ORIGINS` evita que otras webs gasten tu cuota (el origen es solo el
 dominio, sin la ruta del repositorio). El Worker solo deja pasar las tres
 consultas que usa la web (buscar artista, conciertos de un artista y un
-setlist concreto) y cachea las respuestas: los setlists 6 horas, las búsquedas
-de artistas 24 horas y las listas de conciertos 1 hora.
+setlist concreto) y cachea las respuestas durante periodos cortos, como piden
+las condiciones de setlist.fm: los setlists y las búsquedas de artistas 6
+horas, y las listas de conciertos 1 hora. Las búsquedas de artistas se
+normalizan ("Muse" y "muse " cuentan como la misma) para aprovechar la caché.
+
+**Actualizar el Worker:** GitHub no lo despliega automáticamente. Si cambia
+`worker/src/index.js`, vuelve a pegar el código en Cloudflare (*Edit code →
+Deploy*) o ejecuta `npx wrangler deploy`.
 
 ### 4. Conectar todo
 
@@ -113,16 +119,37 @@ genera `web/config.js` con esos valores al publicar.
 
 ### Límites a tener en cuenta
 
-- setlist.fm: 2 peticiones/segundo y 1440 al día por API key. Gracias a la
-  caché, cada concierto se pide una sola vez aunque lo usen muchas personas.
-  Cargar un concierto o buscar un artista gasta una llamada.
+Se puede compartir públicamente mientras sea sin ánimo de lucro: setlist.fm y
+TIDAL solo permiten uso no comercial (nada de anuncios ni suscripciones).
+
+- setlist.fm: es el límite principal, porque todos los usuarios comparten tu API
+  key. No publican cifras oficiales; la referencia habitual para la clave
+  gratuita es 2 peticiones/segundo y 1440 al día. Cada visita gasta unas 2–4
+  llamadas (buscar artista, lista de conciertos o cargar un enlace). La caché
+  del Worker evita repetir llamadas cuando varias personas buscan lo mismo. Si
+  se agota, la web avisa de que setlist.fm está recibiendo demasiadas
+  peticiones y se recupera al día siguiente. Vigila el uso en Cloudflare
+  (*Workers → setlistfm-proxy → Metrics*) y, si se acerca al límite, escribe a
+  setlist.fm para pedir más cuota.
 - TIDAL: al empezar se descarga el catálogo del artista (hasta 10 páginas de
   20 pistas, unas 20 llamadas como máximo). Las canciones que no están en él
   necesitan entre 2 y 10 llamadas (búsqueda y detalle de pistas, con búsquedas
   alternativas). La web hace como mucho 3 búsquedas a la vez y reintenta
   automáticamente si TIDAL responde *429*.
-- Las condiciones de setlist.fm permiten el uso no comercial con atribución. La
-  descripción de cada playlist incluye el enlace al setlist.
+- TIDAL: no publica sus límites; las apps quedan en modo desarrollo con cuotas.
+  Las búsquedas usan la sesión de cada usuario, así que la carga se reparte.
+- Atribución: el pie de la web enlaza a setlist.fm, la pantalla de revisión
+  enlaza el setlist original y la descripción de cada playlist lo incluye.
+
+## Modo diagnóstico
+
+Abre la web con `?debug` al final de la dirección (por ejemplo
+`https://<usuario>.github.io/<repositorio>/?debug`). Aparece un recuadro con lo
+que devuelven TIDAL y setlist.fm y las decisiones de búsqueda, que se puede
+copiar para investigar un problema. No incluye contraseñas ni tokens. Se
+mantiene en esa pestaña (también tras iniciar sesión en TIDAL) hasta pulsar
+**Desactivar diagnóstico** o cerrar la pestaña. El pie de página muestra la
+versión de la web.
 
 ## Desarrollo local
 

@@ -56,11 +56,12 @@ test('worker: añade la API key, filtra parámetros y cachea', async () => {
   assert.equal(first.status, 200);
   assert.equal(first.headers.get('X-Cache'), 'MISS');
   assert.equal(first.headers.get('Access-Control-Allow-Origin'), ORIGIN);
-  assert.equal(fetch.calls[0].url, 'https://api.setlist.fm/rest/1.0/search/artists?artistName=Muse&sort=relevance');
+  assert.equal(fetch.calls[0].url, 'https://api.setlist.fm/rest/1.0/search/artists?artistName=muse&sort=relevance');
   assert.equal(fetch.calls[0].init.headers['x-api-key'], 'secret-key');
   assert.equal(fetch.calls[0].init.headers['Accept-Language'], 'es');
 
-  const second = await handleRequest(request(), env, {}, { fetch, cache, sleep: noWait });
+  // Misma búsqueda con otras mayúsculas y espacios: sale de la caché.
+  const second = await handleRequest(get('search/artists?artistName=%20MUSE%20&sort=relevance', { 'Accept-Language': 'es' }), env, {}, { fetch, cache, sleep: noWait });
   assert.equal(second.headers.get('X-Cache'), 'HIT');
   assert.deepEqual(await second.json(), { artist: [] });
   assert.equal(fetch.calls.length, 1);

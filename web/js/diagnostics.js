@@ -2,7 +2,7 @@
 // devuelven las APIs para poder investigar problemas reales.
 import { session } from './storage.js';
 
-export const APP_VERSION = '2026.11.23-3';
+export const APP_VERSION = '2026.11.23-4';
 
 const MAX_LINES = 3000;
 
@@ -19,7 +19,14 @@ function isEnabled() {
 const lines = [];
 
 export const diag = {
+  // Se guarda en la sesión de la pestaña para que sobreviva a la vuelta del
+  // login de TIDAL (que pierde el ?debug de la URL).
   enabled: isEnabled(),
+  disable() {
+    this.enabled = false;
+    lines.length = 0;
+    session.remove('debug');
+  },
   log(message) {
     if (!this.enabled) return;
     lines.push(`${new Date().toISOString().slice(11, 19)} ${message}`);

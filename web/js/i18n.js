@@ -132,10 +132,12 @@ const messages = {
       unknown: 'Ha ocurrido un error inesperado.',
     },
 
-    footer: 'Datos de conciertos de setlist.fm. No está afiliada a TIDAL ni a setlist.fm.',
+    footerData: 'Datos de conciertos de',
+    footerDisclaimer: 'Esta web no está afiliada a TIDAL ni a setlist.fm.',
     diagTitle: 'Diagnóstico',
     diagHelp: 'Registro de lo que devuelven TIDAL y setlist.fm. No incluye contraseñas ni tokens.',
     diagCopy: 'Copiar diagnóstico',
+    diagDisable: 'Desactivar diagnóstico',
   },
 
   en: {
@@ -267,10 +269,12 @@ const messages = {
       unknown: 'An unexpected error occurred.',
     },
 
-    footer: 'Concert data from setlist.fm. Not affiliated with TIDAL or setlist.fm.',
+    footerData: 'Concert data from',
+    footerDisclaimer: 'This site is not affiliated with TIDAL or setlist.fm.',
     diagTitle: 'Diagnostics',
     diagHelp: 'Log of what TIDAL and setlist.fm return. It contains no passwords or tokens.',
     diagCopy: 'Copy diagnostics',
+    diagDisable: 'Turn off diagnostics',
   },
 };
 

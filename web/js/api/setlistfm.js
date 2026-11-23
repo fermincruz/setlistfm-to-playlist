@@ -4,6 +4,10 @@ import { parseSetlist } from '../core/setlist.js';
 import { ApiError, retryAfterMs, sleep } from './errors.js';
 
 const MIN_INTERVAL_MS = 550; // setlist.fm permite 2 peticiones por segundo.
+
+export function normalizeQuery(value) {
+  return String(value ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
+}
 const MAX_RETRIES = 2;
 
 export function createSetlistClient({ baseUrl, lang = 'es', fetchImpl = globalThis.fetch.bind(globalThis), wait = sleep }) {
@@ -58,7 +62,10 @@ export function createSetlistClient({ baseUrl, lang = 'es', fetchImpl = globalTh
 
   return {
     async searchArtists(name) {
-      const json = await get('search/artists', { artistName: name.trim(), sort: 'relevance', p: 1 });
+      // Normalizar el texto hace que "Muse", "muse " y "MUSE" compartan caché
+      // (aquí y en el Worker) y gasten una sola llamada de la cuota de setlist.fm.
+      const artistName = normalizeQuery(name);
+      const json = await get('search/artists', { artistName, sort: 'relevance', p: 1 });
       return (json?.artist ?? []).map((a) => ({
         mbid: a.mbid,
         name: a.name,

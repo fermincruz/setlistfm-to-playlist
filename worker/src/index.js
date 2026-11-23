@@ -9,7 +9,7 @@ const UPSTREAM = 'https://api.setlist.fm/rest/1.0/';
 
 const ROUTES = [
   { pattern: /^setlist\/[0-9a-f]{4,12}$/, ttl: 6 * 3600 },
-  { pattern: /^search\/artists$/, ttl: 24 * 3600 },
+  { pattern: /^search\/artists$/, ttl: 6 * 3600 },
   { pattern: /^artist\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/setlists$/, ttl: 3600 },
 ];
 const ALLOWED_PARAMS = new Set(['artistName', 'sort', 'p']);
@@ -64,7 +64,11 @@ export async function handleRequest(request, env, ctx = {}, deps = {}) {
   [...url.searchParams.entries()]
     .filter(([key]) => ALLOWED_PARAMS.has(key))
     .sort(([a], [b]) => a.localeCompare(b))
-    .forEach(([key, value]) => params.set(key, value.slice(0, 200)));
+    .forEach(([key, value]) => {
+      // "Muse", "muse " y "MUSE" comparten caché (la búsqueda no distingue mayúsculas).
+      const clean = key === 'artistName' ? value.trim().replace(/\s+/g, ' ').toLowerCase() : value;
+      params.set(key, clean.slice(0, 200));
+    });
   const lang = (request.headers.get('Accept-Language') ?? '').toLowerCase().startsWith('es') ? 'es' : 'en';
 
   const upstreamUrl = `${UPSTREAM}${path}${params.size ? `?${params}` : ''}`;

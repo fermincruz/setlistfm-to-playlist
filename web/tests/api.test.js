@@ -13,7 +13,9 @@ test('setlist.fm: busca artistas a través del proxy con idioma', async () => {
   assert.deepEqual(artists, [{ mbid: 'm1', name: 'Vetusta Morla', disambiguation: 'Spanish band' }]);
   const url = new URL(fetchImpl.calls[0].url);
   assert.equal(url.pathname, '/search/artists');
-  assert.equal(url.searchParams.get('artistName'), 'Vetusta');
+  assert.equal(url.searchParams.get('artistName'), 'vetusta');
+  await client.searchArtists('VETUSTA');
+  assert.equal(fetchImpl.calls.length, 1, 'misma búsqueda normalizada: sale de la caché');
   assert.equal(fetchImpl.calls[0].init.headers['Accept-Language'], 'es');
 });
 

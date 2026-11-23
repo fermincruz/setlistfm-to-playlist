@@ -138,7 +138,10 @@ function viewApp() {
       ${state.view === 'done' ? viewDone() : ''}
       ${diag.enabled ? viewDiagnostics() : ''}
     </main>
-    <footer class="container footer">${esc(t('footer'))} <span class="version">v${esc(APP_VERSION)}</span></footer>`;
+    <footer class="container footer">
+      ${esc(t('footerData'))} <a href="https://www.setlist.fm/" target="_blank" rel="noopener">setlist.fm</a>.
+      ${esc(t('footerDisclaimer'))} <span class="version">v${esc(APP_VERSION)}</span>
+    </footer>`;
 }
 
 function viewDiagnostics() {
@@ -149,6 +152,7 @@ function viewDiagnostics() {
       <textarea id="diag-text" class="diag" readonly rows="14">${esc(diag.text())}</textarea>
       <div class="button-row">
         <button class="btn" data-action="copy-diag">${esc(state.diagCopied ? t('doneCopied') : t('diagCopy'))}</button>
+        <button class="btn btn-ghost" data-action="disable-diag">${esc(t('diagDisable'))}</button>
       </div>
     </section>`;
 }
@@ -1009,6 +1013,10 @@ root.addEventListener('click', (event) => {
         if (action === 'include') resolveAll();
       }
       break;
+    case 'disable-diag':
+      diag.disable();
+      render();
+      break;
     case 'copy-diag':
       navigator.clipboard?.writeText(diag.text()).then(() => {
         state.diagCopied = true;
@@ -1061,7 +1069,8 @@ root.addEventListener('input', (event) => {
   if (target.id === 'artist-q') {
     state.artistQuery = target.value;
     clearTimeout(artistTimer);
-    if (target.value.trim().length >= 3) artistTimer = setTimeout(() => searchArtists(target.value), 600);
+    // Se espera a que el usuario deje de escribir para no gastar cuota de setlist.fm.
+    if (target.value.trim().length >= 3) artistTimer = setTimeout(() => searchArtists(target.value), 1000);
   } else if (target.id === 'url-input') {
     state.urlInput = target.value;
     state.urlError = false;
