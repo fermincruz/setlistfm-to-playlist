@@ -1,0 +1,10 @@
+{
+  "name": "setlistfm-proxy",
+  "private": true,
+  "type": "module",
+  "description": "Cloudflare Worker que hace de proxy de solo lectura para la API de setlist.fm.",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  }
+}

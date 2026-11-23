@@ -1,0 +1,12 @@
+name = "setlistfm-proxy"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+
+[vars]
+# Orígenes que pueden usar el proxy, separados por comas (sin barra final).
+# Ejemplo: "https://tu-usuario.github.io,http://localhost:8000"
+# Si se deja vacío, cualquier web podrá usarlo y gastar tu cuota de setlist.fm.
+ALLOWED_ORIGINS = ""
+
+# La API key NO va aquí. Guárdala como secreto con:
+#   npx wrangler secret put SETLISTFM_API_KEY
