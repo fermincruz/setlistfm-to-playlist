@@ -3,6 +3,7 @@ import {
   artistSimilarity,
   baseTitle,
   normalize,
+  normalizeArtist,
   parentheticals,
   titleSimilarity,
 } from './text.js';
@@ -107,9 +108,19 @@ export function isConfident(candidate) {
  * Estados: "auto" (coincidencia clara), "review" (probable, conviene revisar)
  * y "notfound" (ningún resultado se parece lo suficiente).
  */
-export async function resolveEntry(entry, search, prefs = {}) {
+export async function resolveEntry(entry, search, prefs = {}, catalog = []) {
   const all = new Map();
   let ranked = [];
+
+  // 1. Catálogo del artista: encuentra títulos genéricos ("Editorial",
+  //    "Todo y Más") que la búsqueda general entierra bajo otros artistas.
+  if (catalog.length) {
+    rankCandidates(entry, catalog, prefs).forEach((c) => all.set(c.track.id, c.track));
+    ranked = rankCandidates(entry, [...all.values()], prefs);
+    if (isConfident(ranked[0])) return decision(ranked, all);
+  }
+
+  // 2. Búsqueda general en cascada.
   for (const query of buildQueries(entry)) {
     const tracks = await search(query);
     tracks.forEach((track) => {
@@ -118,7 +129,10 @@ export async function resolveEntry(entry, search, prefs = {}) {
     ranked = rankCandidates(entry, [...all.values()], prefs);
     if (isConfident(ranked[0])) break;
   }
+  return decision(ranked, all);
+}
 
+function decision(ranked, all) {
   const candidates = ranked.map((c) => ({ ...c.track, score: c.score }));
   if (!ranked.length) {
     // Se ofrecen igualmente los resultados en bruto para elegir a mano.
@@ -130,6 +144,19 @@ export async function resolveEntry(entry, search, prefs = {}) {
     selectedId: ranked[0].track.id,
     candidates,
   };
+}
+
+/** Elige, entre los artistas que devuelve TIDAL, el que corresponde al nombre buscado. */
+export function pickArtist(name, artists) {
+  let best = null;
+  for (const artist of artists) {
+    const similarity = artistSimilarity(name, [artist.name]);
+    // Debe ser prácticamente el mismo nombre: "Queen" no vale para "Queen Tribute Band".
+    const exact = normalizeArtist(name) === normalizeArtist(artist.name);
+    const score = exact ? 1.01 : similarity;
+    if (score >= 0.92 && (!best || score > best.score)) best = { ...artist, score };
+  }
+  return best;
 }
 
 /** Clave estable para recordar la elección del usuario para una canción. */

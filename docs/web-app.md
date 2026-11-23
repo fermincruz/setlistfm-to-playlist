@@ -116,10 +116,11 @@ genera `web/config.js` con esos valores al publicar.
 - setlist.fm: 2 peticiones/segundo y 1440 al día por API key. Gracias a la
   caché, cada concierto se pide una sola vez aunque lo usen muchas personas.
   Cargar un concierto o buscar un artista gasta una llamada.
-- TIDAL: cada canción necesita entre 2 y 10 llamadas (búsqueda y detalle de
-  pistas, con búsquedas alternativas si la primera no encuentra nada). La web
-  hace como mucho 3 búsquedas a la vez y reintenta automáticamente si TIDAL
-  responde *429*.
+- TIDAL: al empezar se descarga el catálogo del artista (hasta 10 páginas de
+  20 pistas, unas 20 llamadas como máximo). Las canciones que no están en él
+  necesitan entre 2 y 10 llamadas (búsqueda y detalle de pistas, con búsquedas
+  alternativas). La web hace como mucho 3 búsquedas a la vez y reintenta
+  automáticamente si TIDAL responde *429*.
 - Las condiciones de setlist.fm permiten el uso no comercial con atribución. La
   descripción de cada playlist incluye el enlace al setlist.
 
@@ -150,21 +151,27 @@ el Worker.
 
 ## Cómo se eligen las canciones
 
-Para cada canción del setlist:
+Al empezar, la web busca al artista en TIDAL y descarga su catálogo de pistas
+(una sola vez por concierto). Después, para cada canción del setlist:
 
-1. Se prueban búsquedas de la más precisa a la más amplia: `artista + título`,
+1. Se compara primero con el catálogo del artista. Así se encuentran los
+   títulos genéricos ("Editorial", "Todo y Más", "Pisa Fuerte"), que la búsqueda
+   general de TIDAL entierra bajo canciones populares de otros artistas. Si hay
+   una coincidencia clara, no se hacen más búsquedas.
+2. Si no aparece (por ejemplo, una versión de otro grupo), se prueban búsquedas
+   de la más precisa a la más amplia: `artista + título`,
    `artista + título sin añadidos` y `título`. En las versiones (*covers*) se
    busca también con el artista original. La búsqueda se detiene en cuanto hay
    una coincidencia clara.
-2. Cada resultado se puntúa por la similitud del título (sin tildes,
+3. Cada resultado se puntúa por la similitud del título (sin tildes,
    puntuación, "Remastered 2011", "- Live", "feat."…) y del artista (ignorando
    "The" y aceptando "Bruce Springsteen & The E Street Band"). Los resultados
    con un título o un artista poco parecidos se descartan: **nunca se elige otra
    canción del mismo grupo**.
-3. Se penalizan karaoke, tributos e instrumentales, se prefiere estudio o
+4. Se penalizan karaoke, tributos e instrumentales, se prefiere estudio o
    directo según la opción elegida, y la popularidad solo desempata. Se eliminan
    duplicados por ISRC.
-4. Si la mejor opción coincide claramente, se marca como *Encontrada*; si es
+5. Si la mejor opción coincide claramente, se marca como *Encontrada*; si es
    probable pero no segura, como *Revisar*.
 
 El código está en [`web/js/core/matcher.js`](../web/js/core/matcher.js) y

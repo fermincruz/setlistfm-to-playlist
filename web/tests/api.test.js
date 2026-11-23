@@ -100,6 +100,41 @@ test('TIDAL: searchTracks busca y luego pide el detalle de las pistas en orden',
   assert.equal(fetchImpl.calls[0].init.headers.Authorization, 'Bearer tok');
 });
 
+test('TIDAL: searchArtists devuelve los artistas en orden de relevancia', async () => {
+  const fetchImpl = fakeFetch(() => ({
+    body: {
+      data: { id: 'q', type: 'searchResults', relationships: { artists: { data: [{ id: '7', type: 'artists' }, { id: '3', type: 'artists' }] } } },
+      included: [
+        { id: '3', type: 'artists', attributes: { name: 'El Diablo' } },
+        { id: '7', type: 'artists', attributes: { name: 'El Diablo de Shanghai' } },
+      ],
+    },
+  }));
+  const client = createTidalClient({ getToken: async () => 't', fetchImpl, wait: noWait });
+  const artists = await client.searchArtists('El Diablo de Shanghai', 'ES');
+  assert.deepEqual(artists, [{ id: '7', name: 'El Diablo de Shanghai' }, { id: '3', name: 'El Diablo' }]);
+  assert.equal(new URL(fetchImpl.calls[0].url).searchParams.get('include'), 'artists');
+});
+
+test('TIDAL: artistTracks recorre las páginas del catálogo y pide los detalles', async () => {
+  const fetchImpl = fakeFetch((url) => {
+    const u = new URL(url);
+    if (u.pathname.endsWith('/relationships/tracks')) {
+      return u.searchParams.get('page[cursor]') === 'c2'
+        ? { body: { data: [{ id: '222', type: 'tracks' }], links: { self: '/x' } } }
+        : { body: { data: [{ id: '111', type: 'tracks' }], links: { self: '/x', next: '/x?page[cursor]=c2', meta: { nextCursor: 'c2' } } } };
+    }
+    return { body: tracksDocument };
+  });
+  const client = createTidalClient({ getToken: async () => 't', fetchImpl, wait: noWait });
+  const tracks = await client.artistTracks('a1', 'ES');
+  assert.deepEqual(tracks.map((t) => t.id), ['111', '222']);
+  assert.equal(tracks[0].artist, 'Foo Fighters');
+  assert.equal(fetchImpl.calls.length, 3, 'dos páginas + una llamada de detalles');
+  assert.equal(new URL(fetchImpl.calls[0].url).searchParams.get('collapseBy'), 'FINGERPRINT');
+  assert.deepEqual(new URL(fetchImpl.calls[2].url).searchParams.getAll('filter[id]'), ['111', '222']);
+});
+
 test('TIDAL: ante un 401 refresca el token una vez y reintenta', async () => {
   const tokens = [];
   const fetchImpl = fakeFetch((url, init, n) => (n === 1 ? { status: 401 } : { body: { data: { id: '9', attributes: { username: 'ana', country: 'ES' } } } }));

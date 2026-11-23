@@ -1,4 +1,4 @@
-import { buildQueries, rankCandidates, resolveEntry, scoreCandidate } from '../js/core/matcher.js';
+import { buildQueries, pickArtist, rankCandidates, resolveEntry, scoreCandidate } from '../js/core/matcher.js';
 import {
   aggregateTour,
   buildEntries,
@@ -95,6 +95,44 @@ test('prueba búsquedas alternativas si la primera no da resultado', async () =>
   const result = await resolveEntry(entry('Hey Jude (Live)', 'The Beatles'), search);
   assert.deepEqual(search.queries, ['The Beatles Hey Jude (Live)', 'The Beatles Hey Jude', 'Hey Jude']);
   assert.equal(result.selectedId, '5');
+});
+
+test('encuentra títulos genéricos en el catálogo del artista aunque la búsqueda los entierre', async () => {
+  // Caso real: "Editorial" de El Diablo de Shanghai. La búsqueda general de
+  // TIDAL devuelve solo canciones populares de otros artistas.
+  const others = Array.from({ length: 20 }, (_, i) => track(`o${i}`, 'Editorial', `Otro Artista ${i}`));
+  const search = searchFrom(others);
+  const catalog = [
+    track('d1', 'Editorial', 'El Diablo de Shanghai'),
+    track('d2', 'Pisa Fuerte', 'El Diablo de Shanghai'),
+    track('d3', 'Todo y Más', 'El Diablo de Shanghai'),
+  ];
+  const editorial = await resolveEntry(entry('Editorial', 'El Diablo de Shanghai'), search, {}, catalog);
+  assert.equal(editorial.status, 'auto');
+  assert.equal(editorial.selectedId, 'd1');
+  assert.equal(search.queries.length, 0, 'no hace falta buscar si está en el catálogo');
+
+  const todo = await resolveEntry(entry('Todo y Más', 'El Diablo de Shanghai'), search, {}, catalog);
+  assert.equal(todo.selectedId, 'd3');
+});
+
+test('si la canción no está en el catálogo (p. ej. una versión), recurre a la búsqueda', async () => {
+  const search = searchFrom([track('s1', 'Reptilia', 'The Strokes')]);
+  const catalog = [track('d1', 'Editorial', 'El Diablo de Shanghai')];
+  const result = await resolveEntry(entry('Reptilia', 'El Diablo de Shanghai', { originalArtist: 'The Strokes' }), search, {}, catalog);
+  assert.equal(result.selectedId, 's1');
+  assert.ok(search.queries.length >= 1);
+});
+
+test('pickArtist exige el mismo nombre de artista', () => {
+  const artists = [
+    { id: '1', name: 'El Diablo' },
+    { id: '2', name: 'El Diablo De Shanghai' },
+    { id: '3', name: 'El Diablo de Shanghai Tributo' },
+  ];
+  assert.equal(pickArtist('El Diablo de Shanghai', artists).id, '2');
+  assert.equal(pickArtist('The Beatles', [{ id: 'b', name: 'Beatles' }]).id, 'b');
+  assert.equal(pickArtist('Queen', [{ id: 'q', name: 'Queen Tribute Band' }]), null);
 });
 
 test('título parecido pero no idéntico queda para revisar', async () => {

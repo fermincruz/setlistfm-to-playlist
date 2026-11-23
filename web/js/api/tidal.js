@@ -5,8 +5,9 @@ import { ApiError, retryAfterMs, sleep } from './errors.js';
 export const TIDAL_API = 'https://openapi.tidal.com/v2/';
 const JSON_API = 'application/vnd.api+json';
 const MAX_RETRIES = 3;
-const MAX_SEARCH_RESULTS = 10;
+const MAX_SEARCH_RESULTS = 20;
 const MAX_IDS_PER_REQUEST = 20;
+const MAX_CATALOG_PAGES = 10;
 const MAX_ITEMS_PER_REQUEST = 50;
 
 /**
@@ -92,6 +93,40 @@ export function createTidalClient({ getToken, fetchImpl = globalThis.fetch.bind(
     },
 
     tracksByIds,
+
+    /** Busca artistas por nombre (en orden de relevancia de TIDAL). */
+    async searchArtists(query, countryCode) {
+      const json = await request('GET', 'searchResults', {
+        params: { 'filter[query]': query, countryCode, include: 'artists' },
+      });
+      const names = new Map(
+        (json?.included ?? []).filter((r) => r.type === 'artists').map((r) => [String(r.id), r.attributes?.name ?? '']),
+      );
+      const linked = json?.data?.relationships?.artists?.data ?? [];
+      const ids = linked.length ? linked.map((r) => String(r.id)) : [...names.keys()];
+      return ids.map((id) => ({ id, name: names.get(id) ?? '' })).filter((a) => a.name);
+    },
+
+    /**
+     * Todas las pistas de un artista (hasta `maxPages` páginas), con sus
+     * datos completos. Sirve para encontrar canciones con títulos genéricos
+     * que la búsqueda general entierra bajo resultados de otros artistas.
+     */
+    async artistTracks(artistId, countryCode, { maxPages = MAX_CATALOG_PAGES } = {}) {
+      const ids = [];
+      let cursor = null;
+      for (let page = 0; page < maxPages; page += 1) {
+        const json = await request('GET', `artists/${encodeURIComponent(artistId)}/relationships/tracks`, {
+          params: { countryCode, collapseBy: 'FINGERPRINT', 'page[cursor]': cursor },
+        });
+        (json?.data ?? []).forEach((r) => {
+          if (r?.id && !ids.includes(String(r.id))) ids.push(String(r.id));
+        });
+        cursor = json?.links?.meta?.nextCursor ?? null;
+        if (!cursor || !json?.data?.length) break;
+      }
+      return ids.length ? tracksByIds(ids, countryCode) : [];
+    },
 
     /** Crea la playlist y añade las pistas en orden (lotes de 50). */
     async createPlaylist({ name, description, accessType = 'UNLISTED' }, trackIds, onProgress = () => {}) {

@@ -1,6 +1,6 @@
 // Service worker: guarda la aplicación para que abra rápido y se pueda instalar.
 // Solo cachea archivos propios; las llamadas a TIDAL y setlist.fm van siempre a la red.
-const VERSION = 'v1';
+const VERSION = 'v2';
 const CACHE = `setlist2tidal-${VERSION}`;
 const ASSETS = [
   './',

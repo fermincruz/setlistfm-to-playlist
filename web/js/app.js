@@ -2,7 +2,7 @@
 import { createAuth } from './api/auth.js';
 import { createSetlistClient } from './api/setlistfm.js';
 import { createTidalClient } from './api/tidal.js';
-import { choiceKey, resolveEntry } from './core/matcher.js';
+import { choiceKey, pickArtist, resolveEntry } from './core/matcher.js';
 import {
   aggregateTour,
   buildEntries,
@@ -523,6 +523,36 @@ async function cachedSearch(query) {
   return searchCache.get(key);
 }
 
+const catalogCache = new Map();
+
+/** Errores que impiden seguir (sesión caducada, permisos...) frente a fallos puntuales. */
+function isFatal(error) {
+  return String(error?.code).startsWith('tidal_') && error.code !== 'tidal_error';
+}
+
+/**
+ * Catálogo de pistas del artista en TIDAL, descargado una sola vez por
+ * artista y país. Si falla por un motivo puntual se sigue solo con la búsqueda.
+ */
+function artistCatalog(name) {
+  const key = `${countryCode()}|${normalize(name)}`;
+  if (!catalogCache.has(key)) {
+    const load = (async () => {
+      const artist = pickArtist(name, await tidal.searchArtists(name, countryCode()));
+      return artist ? tidal.artistTracks(artist.id, countryCode()) : [];
+    })().catch((error) => {
+      if (isFatal(error)) {
+        catalogCache.delete(key);
+        throw error;
+      }
+      console.warn('No se pudo cargar el catálogo del artista', error);
+      return [];
+    });
+    catalogCache.set(key, load);
+  }
+  return catalogCache.get(key);
+}
+
 function snapshot(track) {
   const { score, ...rest } = track;
   return rest;
@@ -541,11 +571,12 @@ async function resolveOne(entry) {
   resMap[entry.key] = { ...previous, status: 'searching' };
   render();
   try {
-    const result = await resolveEntry(entry, cachedSearch, state.prefs);
+    const catalog = await artistCatalog(entry.performer);
+    const result = await resolveEntry(entry, cachedSearch, state.prefs, catalog);
     resMap[entry.key] = { ...resMap[entry.key], ...result, searched: true, error: null };
   } catch (error) {
     resMap[entry.key] = { ...resMap[entry.key], status: 'error', error };
-    if (String(error.code).startsWith('tidal_') && error.code !== 'tidal_error') throw error;
+    if (isFatal(error)) throw error;
   }
 }
 
@@ -772,7 +803,7 @@ async function expand(entry) {
     res.loadingCandidates = true;
     render();
     try {
-      const result = await resolveEntry(entry, cachedSearch, state.prefs);
+      const result = await resolveEntry(entry, cachedSearch, state.prefs, await artistCatalog(entry.performer));
       const current = selectedTrack(res);
       const candidates = result.candidates.some((c) => c.id === current?.id) || !current ? result.candidates : [current, ...result.candidates];
       Object.assign(res, { candidates, searched: true });
