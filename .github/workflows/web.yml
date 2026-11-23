@@ -1,0 +1,64 @@
+name: Web (tests y GitHub Pages)
+
+on:
+  push:
+    branches: [main]
+    paths: ['web/**', 'worker/**', '.github/workflows/web.yml']
+  pull_request:
+    paths: ['web/**', 'worker/**', '.github/workflows/web.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: web-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Tests de la web y del Worker
+        run: node web/tests/run.js
+
+  deploy:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generar config.js desde las variables del repositorio
+        env:
+          TIDAL_CLIENT_ID: ${{ vars.TIDAL_CLIENT_ID }}
+          SETLIST_PROXY_URL: ${{ vars.SETLIST_PROXY_URL }}
+          OAUTH_REDIRECT_URI: ${{ vars.OAUTH_REDIRECT_URI }}
+        run: |
+          node -e '
+            const config = {
+              tidalClientId: process.env.TIDAL_CLIENT_ID || "",
+              setlistProxyUrl: process.env.SETLIST_PROXY_URL || "",
+              redirectUri: process.env.OAUTH_REDIRECT_URI || "",
+            };
+            console.log("window.APP_CONFIG = " + JSON.stringify(config, null, 2) + ";");
+          ' > web/config.js
+          cat web/config.js
+      - name: Excluir archivos de desarrollo
+        run: rm -rf web/tests web/package.json
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
+      - id: deployment
+        uses: actions/deploy-pages@v4

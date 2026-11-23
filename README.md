@@ -3,6 +3,21 @@
 Script de terminal que, a partir de la URL de un concierto en [setlist.fm](https://www.setlist.fm/),
 crea una playlist con esas canciones en la cuenta de Tidal del usuario.
 
+## Web app (recomendada)
+
+La forma más sencilla de usarlo es la **web app** de la carpeta [`web/`](web/), publicada en
+GitHub Pages. Funciona en el ordenador y en el móvil, se puede instalar en Android como aplicación
+y no requiere API keys ni conocimientos técnicos: solo una cuenta de TIDAL. Permite buscar un
+artista y elegir el concierto, pegar o compartir un enlace de setlist.fm, crear una playlist con las
+canciones más tocadas de la gira actual, y revisar y corregir cada canción antes de crear la
+playlist.
+
+Consulta la [guía de uso y de puesta en marcha](docs/web-app.md). Quien la mantiene necesita
+registrar una app en TIDAL y desplegar el pequeño proxy de setlist.fm de [`worker/`](worker/),
+ambos gratuitos.
+
+El resto de este documento describe el script de terminal original.
+
 ## Instalación
 
 ```powershell
