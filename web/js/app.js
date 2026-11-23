@@ -14,6 +14,7 @@ import {
   pickTourSetlists,
 } from './core/setlist.js';
 import { formatDuration, normalize } from './core/text.js';
+import { APP_VERSION, describeError, diag } from './diagnostics.js';
 import { createTranslator, detectLanguage } from './i18n.js';
 import { createChoiceMemory, local, session } from './storage.js';
 
@@ -27,7 +28,7 @@ const OK_STATUSES = new Set(['auto', 'remembered', 'manual']);
 let t = createTranslator(detectLanguage(local.get('lang'), navigator.languages ?? []));
 let setlistApi = createSetlistClient({ baseUrl: config.setlistProxyUrl, lang: t.lang });
 const auth = createAuth({ clientId: config.tidalClientId, redirectUri: appUrl, localStore: local, sessionStore: session });
-const tidal = createTidalClient({ getToken: (options) => auth.getAccessToken(options) });
+const tidal = createTidalClient({ getToken: (options) => auth.getAccessToken(options), log: (m) => diag.log(m) });
 const memory = createChoiceMemory(local);
 const searchCache = new Map();
 
@@ -135,8 +136,21 @@ function viewApp() {
       ${state.view === 'source' ? viewSource() : ''}
       ${state.view === 'review' ? viewReview() : ''}
       ${state.view === 'done' ? viewDone() : ''}
+      ${diag.enabled ? viewDiagnostics() : ''}
     </main>
-    <footer class="container footer">${esc(t('footer'))}</footer>`;
+    <footer class="container footer">${esc(t('footer'))} <span class="version">v${esc(APP_VERSION)}</span></footer>`;
+}
+
+function viewDiagnostics() {
+  return `
+    <section class="card" aria-labelledby="diag-title">
+      <h2 id="diag-title" class="step-subtitle">${esc(t('diagTitle'))}</h2>
+      <p class="help">${esc(t('diagHelp'))}</p>
+      <textarea id="diag-text" class="diag" readonly rows="14">${esc(diag.text())}</textarea>
+      <div class="button-row">
+        <button class="btn" data-action="copy-diag">${esc(state.diagCopied ? t('doneCopied') : t('diagCopy'))}</button>
+      </div>
+    </section>`;
 }
 
 function viewHeader() {
@@ -514,10 +528,17 @@ async function cachedSearch(query) {
   if (!searchCache.has(key)) {
     searchCache.set(
       key,
-      tidal.searchTracks(query, countryCode()).catch((error) => {
-        searchCache.delete(key);
-        throw error;
-      }),
+      tidal.searchTracks(query, countryCode()).then(
+        (tracks) => {
+          diag.log(`Búsqueda "${query}": ${tracks.length} resultados: ${tracks.slice(0, 8).map((t) => `${t.artist} – ${t.title}`).join(' | ')}`);
+          return tracks;
+        },
+        (error) => {
+          diag.log(`Búsqueda "${query}" falló: ${describeError(error)}`);
+          searchCache.delete(key);
+          throw error;
+        },
+      ),
     );
   }
   return searchCache.get(key);
@@ -538,14 +559,19 @@ function artistCatalog(name) {
   const key = `${countryCode()}|${normalize(name)}`;
   if (!catalogCache.has(key)) {
     const load = (async () => {
-      const artist = pickArtist(name, await tidal.searchArtists(name, countryCode()));
-      return artist ? tidal.artistTracks(artist.id, countryCode()) : [];
+      const artists = await tidal.searchArtists(name, countryCode());
+      diag.log(`Artistas para "${name}" (país ${countryCode()}): ${artists.slice(0, 8).map((a) => `${a.name} [${a.id}]`).join(' | ') || '(ninguno)'}`);
+      const artist = pickArtist(name, artists);
+      diag.log(`Artista elegido: ${artist ? `${artist.name} [${artist.id}]` : '(ninguno: no se usa catálogo)'}`);
+      const tracks = artist ? await tidal.artistTracks(artist.id, countryCode()) : [];
+      diag.log(`Catálogo: ${tracks.length} pistas: ${tracks.map((t) => t.title).join(' | ')}`);
+      return tracks;
     })().catch((error) => {
+      diag.log(`Error cargando catálogo: ${describeError(error)}`);
       if (isFatal(error)) {
         catalogCache.delete(key);
         throw error;
       }
-      console.warn('No se pudo cargar el catálogo del artista', error);
       return [];
     });
     catalogCache.set(key, load);
@@ -573,8 +599,14 @@ async function resolveOne(entry) {
   try {
     const catalog = await artistCatalog(entry.performer);
     const result = await resolveEntry(entry, cachedSearch, state.prefs, catalog);
+    const chosen = result.candidates.find((c) => c.id === result.selectedId);
+    diag.log(`→ "${entry.title}": ${result.status}${chosen ? ` = ${chosen.artist} – ${chosen.title} [${chosen.id}]` : ''}`);
+    if (result.status !== 'auto') {
+      diag.log(`   candidatos: ${result.candidates.map((c) => `${c.artist} – ${c.title}${c.version ? ` (${c.version})` : ''}`).join(' | ') || '(ninguno)'}`);
+    }
     resMap[entry.key] = { ...resMap[entry.key], ...result, searched: true, error: null };
   } catch (error) {
+    diag.log(`→ "${entry.title}": error ${describeError(error)}`);
     resMap[entry.key] = { ...resMap[entry.key], status: 'error', error };
     if (isFatal(error)) throw error;
   }
@@ -976,6 +1008,12 @@ root.addEventListener('click', (event) => {
         render();
         if (action === 'include') resolveAll();
       }
+      break;
+    case 'copy-diag':
+      navigator.clipboard?.writeText(diag.text()).then(() => {
+        state.diagCopied = true;
+        render();
+      });
       break;
     case 'copy-link':
       navigator.clipboard?.writeText(state.result.url).then(() => {

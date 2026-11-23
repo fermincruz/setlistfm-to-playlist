@@ -13,7 +13,13 @@ const MAX_ITEMS_PER_REQUEST = 50;
 /**
  * `getToken({ forceRefresh })` devuelve un access token válido.
  */
-export function createTidalClient({ getToken, fetchImpl = globalThis.fetch.bind(globalThis), wait = sleep, baseUrl = TIDAL_API }) {
+export function createTidalClient({
+  getToken,
+  fetchImpl = globalThis.fetch.bind(globalThis),
+  wait = sleep,
+  baseUrl = TIDAL_API,
+  log = () => {},
+}) {
   async function request(method, path, { params = {}, body, headers = {} } = {}) {
     const url = new URL(path, baseUrl);
     Object.entries(params).forEach(([key, value]) => {
@@ -37,8 +43,10 @@ export function createTidalClient({ getToken, fetchImpl = globalThis.fetch.bind(
           body: body ? JSON.stringify(body) : undefined,
         });
       } catch (error) {
+        log(`TIDAL ${method} ${url.pathname}${url.search} → error de red ${error}`);
         throw new ApiError('network', { detail: String(error) });
       }
+      log(`TIDAL ${method} ${url.pathname}${url.search} → ${response.status}`);
 
       if (response.status === 401 && !refreshed) {
         refreshed = true;
@@ -48,10 +56,12 @@ export function createTidalClient({ getToken, fetchImpl = globalThis.fetch.bind(
         await wait(retryAfterMs(response, attempt));
         continue;
       }
-      if (response.status === 401) throw new ApiError('tidal_unauthorized', { status: 401 });
-      if (response.status === 403) throw new ApiError('tidal_forbidden', { status: 403 });
-      if (response.status === 429) throw new ApiError('tidal_rate_limit', { status: 429 });
-      if (!response.ok) throw new ApiError('tidal_error', { status: response.status });
+      if (!response.ok) {
+        // El cuerpo del error (JSON:API "errors") ayuda a diagnosticar; se recorta.
+        const detail = `${method} ${url.pathname}: ${(await response.text().catch(() => '')).slice(0, 300)}`;
+        const code = { 401: 'tidal_unauthorized', 403: 'tidal_forbidden', 429: 'tidal_rate_limit' }[response.status] ?? 'tidal_error';
+        throw new ApiError(code, { status: response.status, detail });
+      }
       const text = await response.text();
       return text ? JSON.parse(text) : {};
     }
@@ -123,6 +133,7 @@ export function createTidalClient({ getToken, fetchImpl = globalThis.fetch.bind(
           if (r?.id && !ids.includes(String(r.id))) ids.push(String(r.id));
         });
         cursor = json?.links?.meta?.nextCursor ?? null;
+        log(`  catálogo página ${page + 1}: ${json?.data?.length ?? 0} pistas, siguiente=${Boolean(cursor)}`);
         if (!cursor || !json?.data?.length) break;
       }
       return ids.length ? tracksByIds(ids, countryCode) : [];

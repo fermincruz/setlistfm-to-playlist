@@ -133,6 +133,9 @@ const messages = {
     },
 
     footer: 'Datos de conciertos de setlist.fm. No está afiliada a TIDAL ni a setlist.fm.',
+    diagTitle: 'Diagnóstico',
+    diagHelp: 'Registro de lo que devuelven TIDAL y setlist.fm. No incluye contraseñas ni tokens.',
+    diagCopy: 'Copiar diagnóstico',
   },
 
   en: {
@@ -265,6 +268,9 @@ const messages = {
     },
 
     footer: 'Concert data from setlist.fm. Not affiliated with TIDAL or setlist.fm.',
+    diagTitle: 'Diagnostics',
+    diagHelp: 'Log of what TIDAL and setlist.fm return. It contains no passwords or tokens.',
+    diagCopy: 'Copy diagnostics',
   },
 };
 

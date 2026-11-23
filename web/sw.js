@@ -1,6 +1,6 @@
 // Service worker: guarda la aplicación para que abra rápido y se pueda instalar.
 // Solo cachea archivos propios; las llamadas a TIDAL y setlist.fm van siempre a la red.
-const VERSION = 'v2';
+const VERSION = 'v3';
 const CACHE = `setlist2tidal-${VERSION}`;
 const ASSETS = [
   './',
@@ -11,6 +11,7 @@ const ASSETS = [
   'icons/icon.svg',
   'icons/icon-192.png',
   'js/app.js',
+  'js/diagnostics.js',
   'js/i18n.js',
   'js/storage.js',
   'js/api/auth.js',
@@ -36,11 +37,14 @@ self.addEventListener('activate', (event) => {
 });
 
 // Red primero (para recibir siempre la última versión) y caché si no hay conexión.
+// "no-cache" revalida con el servidor: GitHub Pages permite cachear 10 minutos y,
+// sin esto, una actualización podía tardar en llegar.
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   if (event.request.method !== 'GET' || url.origin !== self.location.origin) return;
+  const request = event.request.mode === 'navigate' ? event.request : new Request(event.request, { cache: 'no-cache' });
   event.respondWith(
-    fetch(event.request)
+    fetch(request)
       .then((response) => {
         if (response.ok) {
           const copy = response.clone();
