@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tests</title>
+  <style>
+    body { font: 14px/1.5 system-ui, sans-serif; margin: 16px; background: #fff; color: #111; }
+    .ok { color: #137333; } .fail { color: #b3261e; } pre { white-space: pre-wrap; margin: 0 0 8px 24px; }
+  </style>
+</head>
+<body>
+  <h1>Tests</h1>
+  <p id="summary">Ejecutando…</p>
+  <div id="results"></div>
+  <script type="module">
+    import { run } from './all.js';
+    const results = await run();
+    const failed = results.filter((r) => !r.ok);
+    const escape = (s) => s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]);
+    document.getElementById('results').innerHTML = results
+      .map((r) => `<div class="${r.ok ? 'ok' : 'fail'}">${r.ok ? '✔' : '✘'} ${escape(r.name)}</div>${r.ok ? '' : `<pre>${escape(r.error)}</pre>`}`)
+      .join('');
+    const summary = document.getElementById('summary');
+    summary.textContent = `RESULT ${results.length - failed.length}/${results.length} ${failed.length ? 'FAILED' : 'PASSED'}`;
+    summary.className = failed.length ? 'fail' : 'ok';
+  </script>
+</body>
+</html>
